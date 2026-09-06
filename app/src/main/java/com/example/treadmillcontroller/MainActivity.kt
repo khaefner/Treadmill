@@ -45,12 +45,15 @@ class MainActivity : ComponentActivity() {
                         metrics = metrics,
                         onStartScan = { checkPermissionsAndScan() },
                         onDisconnect = { bleManager.disconnect() },
+                        onStart = { bleManager.start(it) },
+                        onStop = { bleManager.stop() },
                         onSetSpeed = { bleManager.setSpeed(it) },
                         onSetIncline = { bleManager.setIncline(it) }
                     )
                 }
             }
         }
+        checkPermissionsAndScan()
     }
 
     private fun checkPermissionsAndScan() {

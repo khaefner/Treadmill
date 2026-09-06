@@ -480,9 +480,14 @@ class TreadmillBleManager(private val context: Context) {
                 }
             }
         } else if (bytes.size >= 11 && bytes[0].toInt() == 0x01 && bytes[1].toInt() == 0x12) {
-            // TreadmillStateResponse packet 1 (starts with 01 12 and contains timer seconds at byte 9-10)
-            val timerSec = (bytes[9].toInt() and 0xFF) or ((bytes[10].toInt() and 0xFF) shl 8)
-            currentTimer = timerSec
+            // TreadmillStateResponse packet 1 (starts with 01 12; byte[5] == 0x01 contains the workout timer)
+            if ((bytes[5].toInt() and 0xFF) == 0x01) {
+                val timerSec = (bytes[9].toInt() and 0xFF) or ((bytes[10].toInt() and 0xFF) shl 8)
+                if (timerSec != currentTimer) {
+                    Log.d(TAG, "Workout elapsed timer: ${timerSec}s")
+                }
+                currentTimer = timerSec
+            }
         } else if (bytes.size >= 4 && bytes[0].toInt() == 0x02 && bytes[1].toInt() == 0x01) {
             // Command ack frame [0x02, 0x01, low, high, ...]
             val val16 = (bytes[2].toInt() and 0xFF) or ((bytes[3].toInt() and 0xFF) shl 8)
@@ -499,6 +504,15 @@ class TreadmillBleManager(private val context: Context) {
             distanceMiles = currentDist,
             elapsedSeconds = currentTimer
         )
+    }
+
+    fun start(speedMph: Float = 1.0f) {
+        val target = if (speedMph >= 0.5f) speedMph else 1.0f
+        setSpeed(target)
+    }
+
+    fun stop() {
+        setSpeed(0.0f)
     }
 
     fun setSpeed(speedMph: Float) {
