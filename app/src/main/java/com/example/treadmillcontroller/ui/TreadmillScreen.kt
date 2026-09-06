@@ -91,21 +91,13 @@ fun TreadmillScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Treadmill Controller", fontWeight = FontWeight.Bold) }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
             // 1. Connection Status Card
             ConnectionStatusCard(
                 connectionState = connectionState,
@@ -207,7 +199,6 @@ fun TreadmillScreen(
             }
         }
     }
-}
 
 @Composable
 fun WorkoutConsoleCard(

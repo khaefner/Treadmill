@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.example.treadmillcontroller.ble.TreadmillBleManager
+import com.example.treadmillcontroller.ui.MainAppScreen
 import com.example.treadmillcontroller.ui.TreadmillScreen
 
 class MainActivity : ComponentActivity() {
@@ -40,7 +41,7 @@ class MainActivity : ComponentActivity() {
                     val connectionState by bleManager.connectionState.collectAsState()
                     val metrics by bleManager.metrics.collectAsState()
 
-                    TreadmillScreen(
+                    MainAppScreen(
                         connectionState = connectionState,
                         metrics = metrics,
                         onStartScan = { checkPermissionsAndScan() },
