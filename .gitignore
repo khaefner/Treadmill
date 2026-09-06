@@ -1,0 +1,8 @@
+.gradle/
+.venv/
+build/
+app/build/
+*.apk
+.DS_Store
+.idea/
+*.iml
