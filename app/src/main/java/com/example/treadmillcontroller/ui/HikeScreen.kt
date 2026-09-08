@@ -1,17 +1,13 @@
 package com.example.treadmillcontroller.ui
 
-import android.net.Uri
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,70 +17,39 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.treadmillcontroller.ble.ConnectionState
 import com.example.treadmillcontroller.ble.TreadmillMetrics
-import com.example.treadmillcontroller.trail.GpxParser
 import com.example.treadmillcontroller.trail.Trail
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
 fun HikeScreen(
+    trail: Trail,
+    onBackToHikesList: () -> Unit,
     connectionState: ConnectionState,
     metrics: TreadmillMetrics,
-    onStart: (Float) -> Unit,
+    isHikeActive: Boolean,
+    hikeStartOdometer: Float,
+    onStartHike: (targetSpeed: Float) -> Unit,
+    onPauseHike: () -> Unit,
+    onResumeHike: (targetSpeed: Float) -> Unit,
+    onResetHike: () -> Unit,
     onStop: () -> Unit,
     onSetSpeed: (Float) -> Unit,
     onSetIncline: (Float) -> Unit
 ) {
-    val context = LocalContext.current
     val isConnected = connectionState is ConnectionState.Connected
     val isRunning = isConnected && metrics.speedMph > 0.05f
 
-    // Load initial default trail from assets (Well Gulch)
-    var trail by remember {
-        mutableStateOf(
-            GpxParser.loadFromAssets(context, "hikes/wells_gulch.gpx")
-                ?: Trail("Well Gulch Nature Trail", "", 0f, 0f, 0f, 0f, emptyList())
-        )
-    }
-
-    // Hike workout tracking state
-    var hikeStartOdometer by remember { mutableFloatStateOf(metrics.distanceMiles) }
-    var isHikeActive by remember { mutableStateOf(false) }
     var autoInclineEnabled by remember { mutableStateOf(true) }
     var lastSentIncline by remember { mutableFloatStateOf(-1f) }
     var lastInclineChangeTimeMs by remember { mutableLongStateOf(0L) }
 
     // Target walking speed on hike screen
     var targetSpeed by remember { mutableFloatStateOf(if (metrics.speedMph > 0f) metrics.speedMph else 2.5f) }
-
-    // File picker launcher for loading custom GPX files
-    val gpxPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            try {
-                context.contentResolver.openInputStream(uri)?.use { stream ->
-                    val parsed = GpxParser.parse(stream)
-                    if (parsed.points.isNotEmpty()) {
-                        trail = parsed
-                        hikeStartOdometer = metrics.distanceMiles
-                        isHikeActive = true
-                        lastSentIncline = -1f
-                        Toast.makeText(context, "Loaded: ${parsed.name} (${parsed.totalDistanceMiles} mi)", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "No track points found in GPX file", Toast.LENGTH_LONG).show()
-                    }
-                }
-            } catch (e: Exception) {
-                Toast.makeText(context, "Failed to load GPX: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
 
     // Calculate hike distance
     val hikeDistanceMiles = if (isHikeActive) {
@@ -123,30 +88,19 @@ fun HikeScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 1. Trail Selection & GPX Loader Card
-        TrailHeaderCard(
+        // Top Navigation Bar: Back to Available Hikes + Active Trail Header
+        ActiveTrailHeaderBar(
             trail = trail,
-            onLoadGpxClick = {
-                gpxPickerLauncher.launch(arrayOf("*/*", "application/gpx+xml", "application/xml", "text/xml"))
-            },
-            onResetToDefault = {
-                val defaultTrail = GpxParser.loadFromAssets(context, "hikes/wells_gulch.gpx")
-                if (defaultTrail != null) {
-                    trail = defaultTrail
-                    hikeStartOdometer = metrics.distanceMiles
-                    lastSentIncline = -1f
-                    Toast.makeText(context, "Reset to Well Gulch Nature Trail", Toast.LENGTH_SHORT).show()
-                }
-            }
+            onBackToHikesList = onBackToHikesList
         )
 
-        // 2. Elevation Profile Canvas Chart
+        // Elevation Profile Canvas Chart
         ElevationProfileChart(
             trail = trail,
             currentDistanceMiles = distanceInLoop
         )
 
-        // 3. Live Hike Status & Auto-Incline Card
+        // Live Hike Status & Auto-Incline Simulation Card
         HikeStatusCard(
             targetIncline = targetTrailIncline,
             currentIncline = metrics.inclinePct,
@@ -159,39 +113,28 @@ fun HikeScreen(
             elevationGainFt = (trail.totalElevationGainMeters * 3.28084).roundToInt()
         )
 
-        // 4. Hike Workout Controls (Start, Pause, Resume, Reset, Stop)
+        // Workout Action Controls (Start, Pause, Resume, Reset, Stop)
         HikeActionControls(
             isConnected = isConnected,
             isRunning = isRunning,
             isHikeActive = isHikeActive,
             onStartHike = {
-                isHikeActive = true
-                hikeStartOdometer = metrics.distanceMiles
-                lastSentIncline = -1f
                 val spd = if (targetSpeed >= 0.5f) targetSpeed else 2.5f
-                onStart(spd)
+                onStartHike(spd)
                 if (autoInclineEnabled) {
                     onSetIncline(targetTrailIncline)
                 }
             },
-            onPauseHike = {
-                onSetSpeed(0.0f)
-            },
+            onPauseHike = onPauseHike,
             onResumeHike = {
                 val spd = if (targetSpeed >= 0.5f) targetSpeed else 2.5f
-                onSetSpeed(spd)
+                onResumeHike(spd)
             },
-            onResetHike = {
-                hikeStartOdometer = metrics.distanceMiles
-                lastSentIncline = -1f
-            },
-            onStop = {
-                isHikeActive = false
-                onStop()
-            }
+            onResetHike = onResetHike,
+            onStop = onStop
         )
 
-        // 5. Walking Pace & Speed Adjuster
+        // Walking Pace & Speed Adjuster
         ControlCard(
             title = "Walking Speed (MPH)",
             value = targetSpeed,
@@ -217,13 +160,10 @@ fun HikeScreen(
 }
 
 @Composable
-fun TrailHeaderCard(
+fun ActiveTrailHeaderBar(
     trail: Trail,
-    onLoadGpxClick: () -> Unit,
-    onResetToDefault: () -> Unit
+    onBackToHikesList: () -> Unit
 ) {
-    val hasElevation = trail.minElevationMeters > 0.01f || trail.maxElevationMeters > 0.01f
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -241,67 +181,56 @@ fun TrailHeaderCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                OutlinedButton(
+                    onClick = onBackToHikesList,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Terrain,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Column {
-                        Text(
-                            text = trail.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "%.2f mi • +%.0f ft climb".format(
-                                trail.totalDistanceMiles,
-                                trail.totalElevationGainMeters * 3.28084
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("All Hikes", style = MaterialTheme.typography.labelMedium)
                 }
 
-                Button(
-                    onClick = onLoadGpxClick,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Load GPX")
-                }
-            }
-
-            if (!hasElevation && trail.points.isNotEmpty()) {
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                 ) {
                     Text(
-                        text = "⚠️ This GPX has no <ele> elevation tags. Incline will remain at 0.0%.",
+                        text = "Active Hike",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(8.dp)
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
             }
 
-            if (trail.name != "Well Gulch Nature Trail") {
-                OutlinedButton(
-                    onClick = onResetToDefault,
-                    modifier = Modifier.align(Alignment.End),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Reset to Well Gulch", style = MaterialTheme.typography.labelMedium)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Terrain,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+                Column {
+                    Text(
+                        text = trail.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "%.2f mi • +%.0f ft climb • %.0f - %.0f ft elevation".format(
+                            trail.totalDistanceMiles,
+                            trail.totalElevationGainMeters * 3.28084,
+                            trail.minElevationMeters * 3.28084,
+                            trail.maxElevationMeters * 3.28084
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -592,7 +521,6 @@ fun HikeActionControls(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // START / PAUSE / RESUME HIKE Button
         val (btnColor, btnText, btnIcon) = when {
             isHikeActive && isRunning -> Triple(Color(0xFFF57C00), "PAUSE", Icons.Default.Pause)
             isHikeActive && !isRunning -> Triple(Color(0xFF2E7D32), "RESUME", Icons.Default.PlayArrow)
@@ -626,7 +554,6 @@ fun HikeActionControls(
             )
         }
 
-        // RESET DISTANCE Button
         OutlinedButton(
             onClick = onResetHike,
             modifier = Modifier
@@ -639,7 +566,6 @@ fun HikeActionControls(
             Text("Reset 0 mi", style = MaterialTheme.typography.labelLarge)
         }
 
-        // STOP Button
         Button(
             onClick = onStop,
             enabled = isConnected,

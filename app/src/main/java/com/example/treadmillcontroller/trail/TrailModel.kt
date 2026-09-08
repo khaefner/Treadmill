@@ -11,13 +11,16 @@ data class TrailPoint(
 )
 
 data class Trail(
+    val id: String = "",
     val name: String,
     val description: String,
     val totalDistanceMiles: Float,
     val totalElevationGainMeters: Float,
     val minElevationMeters: Float,
     val maxElevationMeters: Float,
-    val points: List<TrailPoint>
+    val points: List<TrailPoint>,
+    val fileName: String = "",
+    val isBuiltIn: Boolean = false
 ) {
     /**
      * Calculates the target treadmill incline grade (0.0 to 10.0%) for a given workout distance in miles.

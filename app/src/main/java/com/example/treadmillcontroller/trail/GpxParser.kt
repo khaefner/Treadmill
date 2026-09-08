@@ -10,7 +10,7 @@ import kotlin.math.*
 object GpxParser {
     private const val TAG = "GpxParser"
 
-    fun parse(inputStream: InputStream): Trail {
+    fun parse(inputStream: InputStream, fileName: String = "", isBuiltIn: Boolean = false): Trail {
         val factory = XmlPullParserFactory.newInstance()
         factory.isNamespaceAware = false
         val parser = factory.newPullParser()
@@ -65,11 +65,19 @@ object GpxParser {
         }
 
         if (trailName.isEmpty()) {
-            trailName = "Custom Hike"
+            trailName = if (fileName.isNotEmpty()) {
+                fileName.removeSuffix(".gpx").replace("_", " ").replaceFirstChar {
+                    if (it.isLowerCase()) it.titlecase() else it.toString()
+                }
+            } else {
+                "Custom Hike"
+            }
         }
 
+        val trailId = if (fileName.isNotEmpty()) fileName else trailName.replace("\\s+".toRegex(), "_").lowercase()
+
         if (rawPoints.isEmpty()) {
-            return Trail(trailName, trailDesc, 0f, 0f, 0f, 0f, emptyList())
+            return Trail(trailId, trailName, trailDesc, 0f, 0f, 0f, 0f, emptyList(), fileName, isBuiltIn)
         }
 
         // Calculate cumulative distances
@@ -142,13 +150,16 @@ object GpxParser {
         if (maxEle == Double.MIN_VALUE) maxEle = 0.0
 
         return Trail(
+            id = trailId,
             name = trailName,
             description = trailDesc,
             totalDistanceMiles = totalDistMiles,
             totalElevationGainMeters = totalGain.toFloat(),
             minElevationMeters = minEle.toFloat(),
             maxElevationMeters = maxEle.toFloat(),
-            points = trailPoints
+            points = trailPoints,
+            fileName = fileName,
+            isBuiltIn = isBuiltIn
         )
     }
 
@@ -163,7 +174,8 @@ object GpxParser {
 
     fun loadFromAssets(context: Context, assetPath: String = "hikes/wells_gulch.gpx"): Trail? {
         return try {
-            context.assets.open(assetPath).use { parse(it) }
+            val fileName = assetPath.substringAfterLast("/")
+            context.assets.open(assetPath).use { parse(it, fileName = fileName, isBuiltIn = true) }
         } catch (e: Exception) {
             Log.e(TAG, "Error loading GPX from assets: ${e.message}")
             null
