@@ -18,6 +18,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.treadmillcontroller.ble.ConnectionState
 import com.example.treadmillcontroller.ble.TreadmillMetrics
@@ -84,36 +85,17 @@ fun HikeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        // Top Navigation Bar: Back to Available Hikes + Active Trail Header
+        // Top Navigation Bar: Back to Available Hikes + Active Trail Header (Fixed at top)
         ActiveTrailHeaderBar(
             trail = trail,
             onBackToHikesList = onBackToHikesList
         )
 
-        // Elevation Profile Canvas Chart
-        ElevationProfileChart(
-            trail = trail,
-            currentDistanceMiles = distanceInLoop
-        )
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Live Hike Status & Auto-Incline Simulation Card
-        HikeStatusCard(
-            targetIncline = targetTrailIncline,
-            currentIncline = metrics.inclinePct,
-            autoInclineEnabled = autoInclineEnabled,
-            onAutoInclineToggle = { autoInclineEnabled = it },
-            hikeDistanceMiles = hikeDistanceMiles,
-            totalTrailMiles = trail.totalDistanceMiles,
-            loopCount = loopCount,
-            currentElevationFt = currentElevationFt,
-            elevationGainFt = (trail.totalElevationGainMeters * 3.28084).roundToInt()
-        )
-
-        // Workout Action Controls (Start, Pause, Resume, Reset, Stop)
+        // Workout Action Controls (Start, Pause, Resume, Reset, Stop) - Always visible at top
         HikeActionControls(
             isConnected = isConnected,
             isRunning = isRunning,
@@ -134,28 +116,59 @@ fun HikeScreen(
             onStop = onStop
         )
 
-        // Walking Pace & Speed Adjuster
-        ControlCard(
-            title = "Walking Speed (MPH)",
-            value = targetSpeed,
-            step = 0.1f,
-            range = 0.5f..6.0f,
-            presetValues = listOf(1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f),
-            icon = Icons.Default.Speed,
-            enabled = isConnected,
-            onValueChange = { targetSpeed = (it * 10).roundToInt() / 10.0f },
-            onValueChangeFinished = {
-                if (isRunning) {
-                    onSetSpeed(targetSpeed)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Scrollable workout details
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Elevation Profile Canvas Chart
+            ElevationProfileChart(
+                trail = trail,
+                currentDistanceMiles = distanceInLoop
+            )
+
+            // Live Hike Status & Auto-Incline Simulation Card
+            HikeStatusCard(
+                targetIncline = targetTrailIncline,
+                currentIncline = metrics.inclinePct,
+                autoInclineEnabled = autoInclineEnabled,
+                onAutoInclineToggle = { autoInclineEnabled = it },
+                hikeDistanceMiles = hikeDistanceMiles,
+                totalTrailMiles = trail.totalDistanceMiles,
+                loopCount = loopCount,
+                currentElevationFt = currentElevationFt,
+                elevationGainFt = (trail.totalElevationGainMeters * 3.28084).roundToInt()
+            )
+
+            // Walking Pace & Speed Adjuster
+            ControlCard(
+                title = "Walking Speed (MPH)",
+                value = targetSpeed,
+                step = 0.1f,
+                range = 0.5f..6.0f,
+                presetValues = listOf(1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f),
+                icon = Icons.Default.Speed,
+                enabled = isConnected,
+                onValueChange = { targetSpeed = (it * 10).roundToInt() / 10.0f },
+                onValueChangeFinished = {
+                    if (isRunning) {
+                        onSetSpeed(targetSpeed)
+                    }
+                },
+                onPresetSelected = {
+                    targetSpeed = it
+                    if (isRunning) {
+                        onSetSpeed(it)
+                    }
                 }
-            },
-            onPresetSelected = {
-                targetSpeed = it
-                if (isRunning) {
-                    onSetSpeed(it)
-                }
-            }
-        )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }
 
@@ -166,15 +179,15 @@ fun ActiveTrailHeaderBar(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -183,16 +196,17 @@ fun ActiveTrailHeaderBar(
             ) {
                 OutlinedButton(
                     onClick = onBackToHikesList,
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier.height(34.dp)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("All Hikes", style = MaterialTheme.typography.labelMedium)
+                    Text("All Hikes", style = MaterialTheme.typography.labelSmall)
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                 ) {
                     Text(
@@ -200,7 +214,7 @@ fun ActiveTrailHeaderBar(
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
@@ -213,13 +227,15 @@ fun ActiveTrailHeaderBar(
                     imageVector = Icons.Default.Terrain,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 )
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = trail.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = "%.2f mi • +%.0f ft climb • %.0f - %.0f ft elevation".format(
@@ -229,7 +245,9 @@ fun ActiveTrailHeaderBar(
                             trail.maxElevationMeters * 3.28084
                         ),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -519,14 +537,15 @@ fun HikeActionControls(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         val (btnColor, btnText, btnIcon) = when {
             isHikeActive && isRunning -> Triple(Color(0xFFF57C00), "PAUSE", Icons.Default.Pause)
             isHikeActive && !isRunning -> Triple(Color(0xFF2E7D32), "RESUME", Icons.Default.PlayArrow)
-            else -> Triple(Color(0xFF2E7D32), "START HIKE", Icons.Default.PlayArrow)
+            else -> Triple(Color(0xFF2E7D32), "START", Icons.Default.PlayArrow)
         }
 
+        // 1. START / PAUSE / RESUME Button
         Button(
             onClick = {
                 when {
@@ -537,50 +556,87 @@ fun HikeActionControls(
             },
             enabled = isConnected,
             modifier = Modifier
-                .weight(1.2f)
-                .height(56.dp),
-            shape = RoundedCornerShape(14.dp),
+                .weight(1.05f)
+                .height(48.dp),
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = btnColor,
                 contentColor = Color.White
             )
         ) {
-            Icon(btnIcon, contentDescription = null, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = btnText,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(btnIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = btnText,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
+        // 2. RESET Button
         OutlinedButton(
             onClick = onResetHike,
             modifier = Modifier
-                .weight(0.9f)
-                .height(56.dp),
-            shape = RoundedCornerShape(14.dp)
+                .weight(0.95f)
+                .height(48.dp),
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Reset 0 mi", style = MaterialTheme.typography.labelLarge)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "RESET",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
+        // 3. STOP Button
         Button(
             onClick = onStop,
             enabled = isConnected,
             modifier = Modifier
-                .weight(1f)
-                .height(56.dp),
-            shape = RoundedCornerShape(14.dp),
+                .weight(0.95f)
+                .height(48.dp),
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFFC62828),
                 contentColor = Color.White
             )
         ) {
-            Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("STOP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "STOP",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
